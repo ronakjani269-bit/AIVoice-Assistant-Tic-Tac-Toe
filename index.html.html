@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tic Tac Toe — 2 Players Voice</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(to bottom right, #eef2ff, #e0e7ff);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .game {
+      background: #fff;
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      width: 320px;
+      text-align: center;
+    }
+    h1 { font-size: 20px; margin-bottom: 10px; }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      gap: 8px;
+      justify-content: center;
+      margin: 20px auto;
+    }
+    .cell {
+      width: 100px; height: 100px;
+      font-size: 28px;
+      font-weight: bold;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      background: #fafafa;
+    }
+    .cell:hover { background: #f0f0f0; }
+    .controls { margin: 10px 0; }
+    button { margin: 5px; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+    .status { margin: 10px 0; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="game">
+    <h1>Tic-Tac-Toe — 2 Players + Voice</h1>
+    <div class="controls">
+      <button onclick="resetBoard()">Reset</button>
+    </div>
+    <div class="board" id="board"></div>
+    <div class="status" id="status">X's turn</div>
+    <div class="controls">
+      <button onclick="startListening()">🎤 Start Voice</button>
+      <button onclick="stopListening()">Stop</button>
+    </div>
+    <p style="font-size: 12px; color: #666;">
+      Say numbers 1-9 (1=top-left, 9=bottom-right).<br>
+      Say "reset" to restart.
+    </p>
+  </div>
+
+<script>
+let board = Array(9).fill(null);
+let currentTurn = "X";
+let recognition, synth = window.speechSynthesis;
+
+const winningLines = [
+  [0,1,2],[3,4,5],[6,7,8],
+  [0,3,6],[1,4,7],[2,5,8],
+  [0,4,8],[2,4,6]
+];
+
+function checkWinner(b){
+  for (let line of winningLines){
+    let [a,b1,c] = line;
+    if (b[a] && b[a] === b[b1] && b[a] === b[c]) return b[a];
+  }
+  if (b.every(x => x !== null)) return "draw";
+  return null;
+}
+
+function renderBoard(){
+  const boardDiv = document.getElementById("board");
+  boardDiv.innerHTML = "";
+  board.forEach((val,i)=>{
+    let btn = document.createElement("div");
+    btn.className = "cell";
+    btn.textContent = val || "";
+    btn.onclick = ()=> makeMove(i);
+    boardDiv.appendChild(btn);
+  });
+
+  let w = checkWinner(board);
+  let status = document.getElementById("status");
+  if (w === "draw") status.textContent = "It's a draw 😐";
+  else if (w) status.textContent = w + " wins! 🎉";
+  else status.textContent = currentTurn + "'s turn";
+}
+
+function makeMove(i){
+  if (board[i] || checkWinner(board)) return;
+  board[i] = currentTurn;
+  currentTurn = (currentTurn === "X") ? "O" : "X";
+  renderBoard();
+}
+
+function resetBoard(){
+  board = Array(9).fill(null);
+  currentTurn = "X";
+  renderBoard();
+}
+
+function speak(msg){
+  let u = new SpeechSynthesisUtterance(msg);
+  synth.cancel(); synth.speak(u);
+}
+
+function parsePosition(text){
+  text = text.toLowerCase();
+  let num = parseInt(text.replace(/[^0-9]/g,""));
+  if (!isNaN(num) && num>=1 && num<=9) return num-1;
+  const map = {"top left":0,"top middle":1,"top center":1,"top right":2,
+    "middle left":3,"center left":3,"middle":4,"center":4,"middle center":4,"middle right":5,"center right":5,
+    "bottom left":6,"bottom middle":7,"bottom center":7,"bottom right":8};
+  for (let k in map){ if (text.includes(k)) return map[k]; }
+  const single = {"one":0,"two":1,"three":2,"four":3,"five":4,"six":5,"seven":6,"eight":7,"nine":8};
+  let words = text.split(/\s+/);
+  for (let w of words){ if (w in single) return single[w]; }
+  return null;
+}
+
+function handleVoice(text){
+  console.log("Voice:",text);
+  if (text.includes("reset")){ resetBoard(); speak("Game reset"); return; }
+  let pos = parsePosition(text);
+  if (pos!==null){
+    if (board[pos]){ speak("Spot taken"); return; }
+    makeMove(pos);
+    speak("Placed at position " + (pos+1));
+    return;
+  }
+  speak("Sorry, I didn't understand.");
+}
+
+function startListening(){
+  let SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR){ alert("Voice not supported"); return; }
+  recognition = new SR();
+  recognition.lang="en-US"; recognition.interimResults=false;
+  recognition.onresult = e=> handleVoice(e.results[0][0].transcript);
+  recognition.start();
+}
+function stopListening(){ if (recognition) recognition.stop(); }
+
+resetBoard();
+</script>
+</body>
+</html>
